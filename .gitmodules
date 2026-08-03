@@ -1,6 +1,0 @@
-[submodule "Multi-Platform"]
-	path = Multi-Platform
-	url = https://github.com/NitinYadav908/Multi-Platform.git
-[submodule "redux-post-manager"]
-	path = redux-post-manager
-	url = https://github.com/NitinYadav908/redux-post-manager.git
