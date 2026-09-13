@@ -1,71 +1,200 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React, { Profiler, useCallback, useState } from "react";
 
 import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
+import CalendarView from "./components/CalendarView";
+import PerformanceControls from "./components/PerformanceControls";
+import PerformanceInspector from "./components/PerformanceInspector";
+import PerformanceMatrix from "./components/PerformanceMatrix";
+import OptimizationSummary from "./components/OptimizationSummary";
+import RenderActivity from "./components/RenderActivity";
+import PostModal from "./components/PostModal";
 
-import Dashboard from "./pages/Dashboard";
-import CalendarPage from "./pages/CalendarPage";
-import PostsPage from "./pages/PostsPage";
-import DraftsPage from "./pages/DraftsPage";
-import AnalyticsPage from "./pages/AnalyticsPage";
-import SettingsPage from "./pages/SettingsPage";
+import { usePosts } from "./context/PostContext";
+import { usePerformanceContext } from "./context/PerformanceContext";
+import useRenderTracker from "./hooks/useRenderTracker";
 
-function App() {
+export default function App() {
+  useRenderTracker("App");
+
+  const {
+    posts,
+    updatePostPosition,
+    addNewPost,
+    resetPosts,
+  } = usePosts();
+
+  const {
+    markCommit,
+    useMemoOn,
+    useCallbackOn,
+    reactMemoOn,
+  } = usePerformanceContext();
+
+  const [modal, setModal] = useState({
+    open: false,
+    date: new Date(),
+    hour: 9,
+  });
+
+  const handleSelectPost = useCallback((post) => {
+    const date = post.date
+      ? new Date(`${post.date}T12:00:00`)
+      : new Date();
+
+    setModal({
+      open: true,
+      date,
+      hour: post.hour || 9,
+    });
+  }, []);
+
+  const openCreate = useCallback((date = new Date(), hour = 9) => {
+    setModal({
+      open: true,
+      date,
+      hour,
+    });
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setModal((current) => ({
+      ...current,
+      open: false,
+    }));
+  }, []);
+
+  const handleProfilerRender = useCallback(
+    (id, phase) => {
+      markCommit();
+
+      if (phase === "update") {
+        console.debug(
+          `[Performance] ${id} committed`
+        );
+      }
+    },
+    [markCommit]
+  );
+
+  const allOn =
+    useMemoOn &&
+    useCallbackOn &&
+    reactMemoOn;
+
+  const allOff =
+    !useMemoOn &&
+    !useCallbackOn &&
+    !reactMemoOn;
+
+  const modeLabel = allOn
+    ? "ALL OPTIMIZATIONS ON"
+    : allOff
+      ? "BASELINE — ALL OFF"
+      : "CUSTOM CONFIGURATION";
+
   return (
-    <BrowserRouter>
-
+    <Profiler
+      id="PerformanceInspector"
+      onRender={handleProfilerRender}
+    >
       <div className="app">
 
-        <Sidebar />
+        <Header
+          optimized={allOn}
+          onReset={resetPosts}
+        />
 
-        <div className="main-area">
+        <main className="main">
 
-          <Header />
+          {/* HERO */}
+          <section className="hero">
 
-          <main>
+            <div className="hero-copy">
 
-            <Routes>
+              <span className="section-kicker">
+                INTERACTIVE BENCHMARK
+              </span>
 
-              <Route
-                path="/"
-                element={<Dashboard />}
+              <h2>
+                See optimization effects{" "}
+                <em>as they happen.</em>
+              </h2>
+
+              <p>
+                Test React rendering performance by
+                switching each optimization independently.
+                Then perform the same calendar interaction
+                to compare the results.
+              </p>
+
+            </div>
+
+            <div
+              className={`hero-badge ${
+                allOn ? "optimized" : ""
+              }`}
+            >
+              <span>
+                Test configuration
+              </span>
+
+              <strong>
+                {modeLabel}
+              </strong>
+            </div>
+
+          </section>
+
+          {/* THREE OPTIMIZATION TOGGLES */}
+          <PerformanceControls />
+
+          {/* LIVE METRICS */}
+          <PerformanceInspector
+            postsCount={posts.length}
+          />
+
+          {/* CALENDAR + SIDEBAR */}
+          <div className="content-grid">
+
+            <section className="calendar-panel panel">
+
+              <CalendarView
+                posts={posts}
+                onMove={updatePostPosition}
+                onSelect={handleSelectPost}
+                onAddPost={openCreate}
               />
 
-              <Route
-                path="/calendar"
-                element={<CalendarPage />}
+            </section>
+
+            <aside className="side">
+
+              <OptimizationSummary
+                postsCount={posts.length}
               />
 
-              <Route
-                path="/posts"
-                element={<PostsPage />}
-              />
+              <RenderActivity />
 
-              <Route
-                path="/drafts"
-                element={<DraftsPage />}
-              />
+            </aside>
 
-              <Route
-                path="/analytics"
-                element={<AnalyticsPage />}
-              />
+          </div>
 
-              <Route
-                path="/settings"
-                element={<SettingsPage />}
-              />
+          {/* PERFORMANCE MATRIX */}
+          <PerformanceMatrix
+            postsCount={posts.length}
+          />
 
-            </Routes>
+          {/* CREATE POST */}
+          <PostModal
+            open={modal.open}
+            initialDate={modal.date}
+            initialHour={modal.hour}
+            onClose={closeModal}
+            onCreate={addNewPost}
+          />
 
-          </main>
-
-        </div>
-
+        </main>
       </div>
-
-    </BrowserRouter>
+    </Profiler>
   );
 }
-
-export default App;
